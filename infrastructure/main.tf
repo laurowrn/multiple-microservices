@@ -34,6 +34,10 @@ data "aws_iam_policy_document" "ecs_task_execution_role_assume_role_policy" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
 resource "aws_iam_role" "ecs_role" {
   name                = "ecs_role"
   path                = "/"
@@ -89,7 +93,7 @@ resource "aws_autoscaling_group" "ecs_autoscaling_group" {
   max_size            = 1
   desired_capacity    = 1
   vpc_zone_identifier = [var.vpc_zone_identifier]
-  force_delete = true
+  force_delete        = true
   launch_template {
     id      = aws_launch_template.ecs_launch_template.id
     version = aws_launch_template.ecs_launch_template.latest_version
@@ -215,6 +219,52 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
 }
 
+resource "aws_ecr_repository" "user_service" {
+  name                 = "user_service"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "product_service" {
+  name                 = "product_service"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "order_service" {
+  name                 = "order_service"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "expiry_policy" {
+  for_each = toset([
+    aws_ecr_repository.user_service.name,
+    aws_ecr_repository.product_service.name,
+    aws_ecr_repository.order_service.name
+  ])
+  repository = each.value
+
+  policy = file("${path.module}/ecr-policy.json")
+}
+
+locals {
+  ecr_base_url = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com"
+
+  user_service_image    = "${local.ecr_base_url}/${aws_ecr_repository.user_service.name}:latest"
+  product_service_image = "${local.ecr_base_url}/${aws_ecr_repository.product_service.name}:latest"
+  order_service_image   = "${local.ecr_base_url}/${aws_ecr_repository.order_service.name}:latest"
+}
+
 resource "aws_ecs_task_definition" "ecs_task_definition" {
   family                   = "ecs_task_definition"
   network_mode             = "awsvpc"
@@ -225,7 +275,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
   container_definitions = jsonencode([
     {
       name      = "user-service"
-      image     = var.user_service_image_uri
+      image     = local.user_service_image
       essential = true
       portMappings = [
         {
@@ -235,7 +285,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
     },
     {
       name      = "product-service"
-      image     = var.product_service_image_uri
+      image     = local.product_service_image
       essential = true
       portMappings = [
         {
@@ -245,7 +295,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
     },
     {
       name      = "order-service"
-      image     = var.order_service_image_uri
+      image     = local.order_service_image
       essential = true
       portMappings = [
         {
@@ -306,7 +356,7 @@ resource "null_resource" "ecs_service_scale_to_zero_on_destroy" {
   triggers = {
     cluster_name = aws_ecs_cluster.cluster.name
     service_name = "ecs_service"
-    region       = "us-east-1"          # ← your region
+    region       = data.aws_region.current.name
   }
 
   provisioner "local-exec" {
