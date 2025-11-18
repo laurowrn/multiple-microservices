@@ -138,6 +138,18 @@ resource "aws_lb_target_group" "user_tg" {
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
+
+  health_check {
+    enabled             = true
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
 }
 
 resource "aws_lb_target_group" "product_tg" {
@@ -146,6 +158,18 @@ resource "aws_lb_target_group" "product_tg" {
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
+
+  health_check {
+    enabled             = true
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
 }
 
 resource "aws_lb_target_group" "order_tg" {
@@ -154,6 +178,18 @@ resource "aws_lb_target_group" "order_tg" {
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
+
+  health_check {
+    enabled             = true
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
 }
 
 resource "aws_lb_listener" "http" {
@@ -222,6 +258,7 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 resource "aws_ecr_repository" "user_service" {
   name                 = "user_service"
   image_tag_mutability = "MUTABLE"
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -231,6 +268,7 @@ resource "aws_ecr_repository" "user_service" {
 resource "aws_ecr_repository" "product_service" {
   name                 = "product_service"
   image_tag_mutability = "MUTABLE"
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -240,6 +278,7 @@ resource "aws_ecr_repository" "product_service" {
 resource "aws_ecr_repository" "order_service" {
   name                 = "order_service"
   image_tag_mutability = "MUTABLE"
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -255,6 +294,15 @@ resource "aws_ecr_lifecycle_policy" "expiry_policy" {
   repository = each.value
 
   policy = file("${path.module}/ecr-policy.json")
+}
+
+resource "aws_cloudwatch_log_group" "ecs" {
+  name = "/ecs/app-cluster"
+  retention_in_days = 30
+  tags = {
+    Environment = "dev"
+    Application = "app"
+  }
 }
 
 locals {
@@ -282,6 +330,14 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           containerPort = 3001
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "user"
+        }
+      }
     },
     {
       name      = "product-service"
@@ -292,6 +348,14 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           containerPort = 3000
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "product"
+        }
+      }
     },
     {
       name      = "order-service"
@@ -312,6 +376,14 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           value = "http://localhost:3000"
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "order"
+        }
+      }
     },
   ])
 }

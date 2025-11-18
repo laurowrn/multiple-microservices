@@ -7,7 +7,7 @@ variable "instance_name" {
 variable "instance_type" {
   description = "The EC@ instance's type."
   type        = string
-  default     = "t2.micro"
+  default     = "t2.small"
 }
 
 variable "user_service_image_uri" {
