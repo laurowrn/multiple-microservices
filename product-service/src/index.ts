@@ -51,6 +51,10 @@ app.post("/product/update_stock/:productId", (req: Request, res: Response) => {
     res.status(200).send("product stock updated")
 })
 
+app.get("/health", (req: Request, res: Response) => {
+    res.status(200).json({ status: "ok" })
+})
+
 app.listen(port, () => {
     console.log(`Product service listening on port ${port}`);
 });

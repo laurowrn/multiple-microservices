@@ -37,3 +37,7 @@ def create_order(order_data: dict):
 @app.get("/")
 def read_root():
     return {"message": "Hello"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -43,11 +42,11 @@ func main() {
 	router.GET("/user/:userId", getUser)
 	router.POST("/user/pay", payValue)
 	router.POST("/user/deposit", depositValue)
+	router.GET("/health", health)
 	router.Run("0.0.0.0:3001")
 }
 
 func createUser(c *gin.Context) {
-	fmt.Print("Creating user")
 	var createUserRequest CreateUserRequest
 	if err := c.ShouldBindJSON(&createUserRequest); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -64,7 +63,6 @@ func createUser(c *gin.Context) {
 }
 
 func getUser(c *gin.Context) {
-	fmt.Print("Getting user")
 	userId, _ := strconv.Atoi(c.Param("userId"))
 	for _, user := range users {
 		if user.Id == userId {
@@ -110,4 +108,10 @@ func depositValue(c *gin.Context) {
 		}
 	}
 	c.String(404, "user not found")
+}
+
+func health(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"status": "ok",
+	})
 }
